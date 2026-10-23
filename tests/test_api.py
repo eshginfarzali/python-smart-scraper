@@ -46,7 +46,7 @@ def make_api(database_url: str, router: respx.Router) -> AppFactory:
             "backoff_base_seconds": 0.1,
             **overrides,
         }
-        settings = Settings.model_validate(values)
+        settings = Settings(_env_file=None, **values)  # ignore any local .env
         app = create_app(
             settings,
             transport=transport or httpx.MockTransport(router.async_handler),
