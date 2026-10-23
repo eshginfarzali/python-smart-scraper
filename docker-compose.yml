@@ -1,0 +1,44 @@
+# Local stack. The API is published on host port ${HOST_PORT:-8400}.
+#
+#   docker compose up --build                       # SQLite in a named volume
+#   docker compose --profile postgres up --build    # with Postgres (set DATABASE_URL, see README)
+name: python-smart-scraper
+
+services:
+  api:
+    build: .
+    image: python-smart-scraper:local
+    ports:
+      - "${HOST_PORT:-8400}:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:////app/data/scraper.db}
+      SCRAPER_LOG_LEVEL: ${SCRAPER_LOG_LEVEL:-INFO}
+      SCRAPER_WORKER_COUNT: ${SCRAPER_WORKER_COUNT:-2}
+      SCRAPER_MIN_HOST_DELAY_SECONDS: ${SCRAPER_MIN_HOST_DELAY_SECONDS:-1.0}
+    volumes:
+      - scraper-data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: scraper
+      POSTGRES_USER: scraper
+      # Local development only - override via the environment for anything shared.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scraper}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scraper -d scraper"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  scraper-data:
+  postgres-data:
